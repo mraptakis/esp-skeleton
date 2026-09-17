@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device setup</title>
+<style>
+:root{
+  --bg:#12161c; --panel:#1b2129; --line:#2b333d;
+  --fg:#d6dde5; --mut:#7d8895; --amber:#e8a13a; --bad:#d4614b;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;padding:1.5rem 1.25rem 3rem;background:var(--bg);color:var(--fg);
+  font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+main{max-width:26rem;margin:0 auto}
+h1{font-size:1.05rem;font-weight:600;margin:0 0 .15rem}
+h2{font-size:.9rem;font-weight:600;margin:2rem 0 .6rem;color:var(--mut)}
+p{margin:.4rem 0}
+
+.state{font-size:1.9rem;font-weight:600;letter-spacing:-.02em;margin:0}
+.state.on{color:var(--amber)}
+.state.off{color:var(--bad)}
+.meta{color:var(--mut);font-family:var(--mono);font-size:.82rem;margin:.1rem 0 0}
+
+.banner{
+  margin:1rem 0 0;padding:.6rem .7rem;border-left:2px solid var(--bad);
+  color:var(--bad);font-size:.88rem;
+}
+
+ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+li{border-bottom:1px solid var(--line)}
+.net{
+  display:block;width:100%;text-align:left;background:none;border:0;color:inherit;
+  font:inherit;padding:.65rem .2rem;cursor:pointer;
+}
+.net:hover,.net:focus-visible{background:var(--panel)}
+.net[aria-pressed=true]{background:var(--panel);box-shadow:inset 3px 0 0 var(--amber)}
+.net .n{display:flex;justify-content:space-between;gap:1rem;align-items:baseline}
+.ssid{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dbm{font-family:var(--mono);font-size:.75rem;color:var(--mut);flex:none}
+.bar{height:2px;background:var(--line);margin-top:.4rem}
+.bar i{display:block;height:2px;background:var(--amber)}
+.lock{color:var(--mut);font-size:.75rem}
+
+label{display:block;font-size:.82rem;color:var(--mut);margin:.9rem 0 .25rem}
+input{
+  width:100%;padding:.6rem .7rem;background:var(--panel);color:var(--fg);
+  border:1px solid var(--line);border-radius:3px;font:inherit;
+}
+input:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+.row{display:flex;gap:.6rem}
+.row .grow{flex:1}
+.row .narrow{width:7rem;flex:none}
+
+button.go{
+  width:100%;margin-top:1.1rem;padding:.7rem;background:var(--amber);color:#12161c;
+  border:0;border-radius:3px;font:inherit;font-weight:600;cursor:pointer;
+}
+button.go:disabled{background:var(--line);color:var(--mut);cursor:default}
+button.ghost{
+  background:none;border:1px solid var(--line);color:var(--mut);font:inherit;
+  padding:.5rem .8rem;border-radius:3px;cursor:pointer;
+}
+button.ghost:hover{color:var(--fg);border-color:var(--mut)}
+
+.msg{margin-top:1rem;padding:.6rem .7rem;border-left:2px solid var(--line);color:var(--mut);font-size:.88rem}
+.msg.err{border-color:var(--bad);color:var(--bad)}
+.msg.ok{border-color:var(--amber);color:var(--fg)}
+.hide{display:none}
+
+dl{display:grid;grid-template-columns:auto 1fr;gap:.2rem 1rem;margin:0;font-family:var(--mono);font-size:.78rem}
+dt{color:var(--mut)}
+dd{margin:0;text-align:right;overflow:hidden;text-overflow:ellipsis}
+
+pre.log{
+  margin:0;padding:.6rem .7rem;background:var(--panel);border:1px solid var(--line);
+  border-radius:3px;font-family:var(--mono);font-size:.72rem;line-height:1.45;
+  color:var(--mut);max-height:14rem;overflow:auto;white-space:pre-wrap;word-break:break-all;
+}
+.foot{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1.4rem}
+</style>
+</head>
+<body>
+<main>
+
+  <h1 id="title">Device setup</h1>
+  <p class="state" id="state">&hellip;</p>
+  <p class="meta" id="meta"></p>
+  <div class="banner hide" id="safeBanner">
+    Safe mode. This device restarted repeatedly, so only the update and
+    configuration endpoints are running. Flash a working firmware, then restart
+    and clear the counter.
+  </div>
+
+  <!-- provisioning -->
+  <section id="setup" class="hide">
+    <h2 id="scanHead">Nearby networks</h2>
+    <ul id="nets"></ul>
+    <p class="meta hide" id="scanNote">Some networks were omitted.</p>
+
+    <label for="ssid">Network name</label>
+    <input id="ssid" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+    <label for="pw">Password</label>
+    <input id="pw" type="password" autocomplete="off">
+
+    <button class="go" id="join">Join network</button>
+    <div class="msg hide" id="setupMsg"></div>
+  </section>
+
+  <!-- connected -->
+  <section id="app" class="hide">
+    <h2>Indicator</h2>
+    <button class="go" id="led">&hellip;</button>
+
+    <h2>Device</h2>
+    <dl id="info"></dl>
+
+    <h2>Identity</h2>
+    <label for="host">Hostname</label>
+    <input id="host" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label for="fname">Display name</label>
+    <input id="fname" autocomplete="off">
+    <button class="go" id="saveSettings">Save identity</button>
+    <div class="msg hide" id="settingsMsg"></div>
+
+    <h2>MQTT broker</h2>
+    <div class="row">
+      <div class="grow">
+        <label for="bhost">Host</label>
+        <input id="bhost" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="narrow">
+        <label for="bport">Port</label>
+        <input id="bport" inputmode="numeric" autocomplete="off">
+      </div>
+    </div>
+    <label for="buser">Username</label>
+    <input id="buser" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label for="bpass">Password</label>
+    <input id="bpass" type="password" autocomplete="off">
+    <label for="btopic">Base topic</label>
+    <input id="btopic" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button class="go" id="saveBroker">Save broker</button>
+    <div class="msg hide" id="brokerMsg"></div>
+
+    <h2>Recent log</h2>
+    <pre class="log" id="log">&hellip;</pre>
+
+    <div class="foot">
+      <button class="ghost" id="refreshLog">Refresh log</button>
+      <button class="ghost" id="restart">Restart</button>
+      <button class="ghost" id="forget">Forget network</button>
+    </div>
+    <div class="msg hide" id="appMsg"></div>
+  </section>
+
+</main>
+<script>
+const MOCK = location.protocol === 'file:' || location.search.includes('mock');
+
+const $ = id => document.getElementById(id);
+const show = (el, yes) => el.classList.toggle('hide', !yes);
+
+async function api(path, opts) {
+  if (MOCK) return mock(path, opts);
+  const r = await fetch(path, opts);
+  if (!r.ok && r.status !== 202 && r.status !== 409) throw new Error(r.status);
+  return { status: r.status, body: await r.json() };
+}
+
+function post(path, data) {
+  return api(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(data || {}).toString()
+  });
+}
+
+function say(el, text, kind) {
+  el.textContent = text;
+  el.className = 'msg' + (kind ? ' ' + kind : '');
+  show(el, true);
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+/* -------- status -------- */
+
+function paintState(info) {
+  const online = info.state === 'connected';
+  if (info.friendlyName) $('title').textContent = info.friendlyName;
+  $('state').textContent = online ? 'Connected' : 'Not connected';
+  $('state').className = 'state ' + (online ? 'on' : 'off');
+  $('meta').textContent = online
+    ? (info.ssid || '') + '  ' + info.ip
+    : 'Setup network  ' + (info.apSsid || '');
+  show($('safeBanner'), info.safeMode === true);
+}
+
+function paintInfo(info) {
+  const rows = [
+    ['Address', info.ip],
+    ['Signal', info.rssi != null ? info.rssi + ' dBm' : '—'],
+    ['Uptime', Math.floor(info.uptimeMs / 1000) + ' s'],
+    ['Free memory', info.heap + ' B'],
+    ['Largest block', info.maxBlock + ' B'],
+    ['Update space', info.freeSketch + ' B'],
+    ['Boot count', info.bootCount],
+    ['Last reset', info.reset],
+    ['Build', info.build]
+  ];
+  $('info').innerHTML = rows
+    .map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>')
+    .join('');
+}
+
+/* -------- scanning -------- */
+
+let scanTries = 0;
+
+function signalPct(dbm) {
+  return Math.max(4, Math.min(100, Math.round(2 * (dbm + 100))));
+}
+
+function paintNets(list) {
+  $('nets').innerHTML = list.map(n =>
+    '<li><button class="net" aria-pressed="false" data-ssid="' + esc(n.ssid) + '">' +
+      '<span class="n"><span class="ssid">' + esc(n.ssid) +
+      (n.open ? '' : ' <span class="lock">locked</span>') + '</span>' +
+      '<span class="dbm">' + n.rssi + '</span></span>' +
+      '<span class="bar"><i style="width:' + signalPct(n.rssi) + '%"></i></span>' +
+    '</button></li>'
+  ).join('');
+
+  $('nets').querySelectorAll('.net').forEach(b => {
+    b.onclick = () => {
+      $('nets').querySelectorAll('.net').forEach(o => o.setAttribute('aria-pressed', 'false'));
+      b.setAttribute('aria-pressed', 'true');
+      $('ssid').value = b.dataset.ssid;
+      $('pw').focus();
+    };
+  });
+}
+
+async function scan() {
+  try {
+    const { status, body } = await api('/api/wifi/scan');
+
+    if (status === 409) {
+      $('scanHead').textContent = 'Nearby networks — busy, retrying';
+      setTimeout(scan, 3000);
+      return;
+    }
+
+    if (body.networks && body.networks.length) paintNets(body.networks);
+    show($('scanNote'), body.truncated === true);
+
+    if (body.scanning && scanTries++ < 8) {
+      $('scanHead').textContent = 'Nearby networks — scanning';
+      setTimeout(scan, 1500);
+      return;
+    }
+
+    $('scanHead').textContent = 'Nearby networks';
+    if (!body.networks || !body.networks.length) {
+      $('nets').innerHTML = '<li><p class="meta" style="padding:.7rem .2rem">' +
+        'No networks found. Type the name below.</p></li>';
+    }
+  } catch (e) {
+    $('scanHead').textContent = 'Nearby networks — scan failed';
+  }
+}
+
+/* -------- wifi actions -------- */
+
+$('join').onclick = async () => {
+  const ssid = $('ssid').value.trim();
+  if (!ssid) { say($('setupMsg'), 'Enter a network name.', 'err'); return; }
+
+  $('join').disabled = true;
+  say($('setupMsg'), 'Joining ' + ssid + '\u2026');
+
+  try {
+    const { body } = await post('/api/wifi/config', { ssid, password: $('pw').value });
+    say($('setupMsg'),
+      'Joining ' + body.ssid + '. This setup network will disappear. ' +
+      'Reconnect your phone to ' + body.ssid + ', then open http://' + body.hostname + '.local',
+      'ok');
+  } catch (e) {
+    say($('setupMsg'), 'The device rejected those details. Check the password and try again.', 'err');
+    $('join').disabled = false;
+  }
+};
+
+$('forget').onclick = async () => {
+  $('forget').disabled = true;
+  try {
+    const { body } = await post('/api/wifi/forget');
+    say($('appMsg'),
+      'Network cleared. The device is restarting setup mode as "' + body.apSsid + '".', 'ok');
+  } catch (e) {
+    say($('appMsg'), 'Could not clear the network. Try again.', 'err');
+    $('forget').disabled = false;
+  }
+};
+
+$('restart').onclick = async () => {
+  $('restart').disabled = true;
+  try {
+    await post('/api/restart', { clear: '1' });
+    say($('appMsg'), 'Restarting. Reload this page in a few seconds.', 'ok');
+  } catch (e) {
+    say($('appMsg'), 'Could not restart the device.', 'err');
+    $('restart').disabled = false;
+  }
+};
+
+/* -------- identity -------- */
+
+async function loadSettings() {
+  try {
+    const { body } = await api('/api/settings');
+    $('host').value = body.hostname || '';
+    $('host').placeholder = body.defaultHostname || '';
+    $('fname').value = body.friendlyName || '';
+  } catch (e) {
+    say($('settingsMsg'), 'Could not read the device identity.', 'err');
+  }
+}
+
+$('saveSettings').onclick = async () => {
+  $('saveSettings').disabled = true;
+  try {
+    await post('/api/settings', {
+      hostname: $('host').value.trim(),
+      friendlyName: $('fname').value.trim()
+    });
+    say($('settingsMsg'), 'Saved. The hostname changes after the next restart.', 'ok');
+  } catch (e) {
+    say($('settingsMsg'), 'Rejected. Check the lengths and try again.', 'err');
+  }
+  $('saveSettings').disabled = false;
+};
+
+/* -------- broker -------- */
+
+function paintBroker(b) {
+  $('bhost').value = b.host || '';
+  $('bport').value = b.port || 1883;
+  $('buser').value = b.username || '';
+  $('btopic').value = b.baseTopic || '';
+  $('bpass').value = '';
+  $('bpass').placeholder = b.hasPassword ? 'unchanged' : '';
+}
+
+async function loadBroker() {
+  try {
+    const { body } = await api('/api/broker');
+    paintBroker(body);
+  } catch (e) {
+    say($('brokerMsg'), 'Could not read the broker settings.', 'err');
+  }
+}
+
+$('saveBroker').onclick = async () => {
+  $('saveBroker').disabled = true;
+  const data = {
+    host: $('bhost').value.trim(),
+    port: $('bport').value.trim() || '1883',
+    username: $('buser').value.trim(),
+    baseTopic: $('btopic').value.trim()
+  };
+  // Send the password only when the field was actually typed in, so editing
+  // the host does not silently wipe a stored secret.
+  if ($('bpass').value.length) data.password = $('bpass').value;
+
+  try {
+    const { body } = await post('/api/broker', data);
+    paintBroker(body);
+    say($('brokerMsg'), body.configured ? 'Broker saved.' : 'Broker cleared.', 'ok');
+  } catch (e) {
+    say($('brokerMsg'), 'Rejected. Check the host and port.', 'err');
+  }
+  $('saveBroker').disabled = false;
+};
+
+/* -------- log -------- */
+
+async function loadLog() {
+  try {
+    const { body } = await api('/api/log');
+    const head = body.dropped ? '... ' + body.dropped + ' earlier lines dropped\n' : '';
+    $('log').textContent = head + (body.lines || []).join('\n');
+  } catch (e) {
+    $('log').textContent = 'Log unavailable.';
+  }
+}
+
+$('refreshLog').onclick = loadLog;
+
+/* -------- example app: indicator -------- */
+
+let ledOn = false;
+
+function paintLed() {
+  $('led').textContent = ledOn ? 'Turn indicator off' : 'Turn indicator on';
+  $('led').disabled = false;
+}
+
+$('led').onclick = async () => {
+  $('led').disabled = true;
+  try {
+    const { body } = await post('/api/led', { on: ledOn ? '0' : '1' });
+    ledOn = body.on;
+  } catch (e) {
+    $('led').textContent = 'Indicator unavailable';
+    return;
+  }
+  paintLed();
+};
+
+/* -------- boot -------- */
+
+(async () => {
+  let info;
+  try {
+    info = (await api('/api/info')).body;
+  } catch (e) {
+    $('state').textContent = 'Offline';
+    $('state').className = 'state off';
+    $('meta').textContent = 'The device is not responding. Reload the page.';
+    return;
+  }
+
+  paintState(info);
+
+  if (info.state === 'connected') {
+    show($('app'), true);
+    paintInfo(info);
+    loadSettings();
+    loadBroker();
+    loadLog();
+    try {
+      ledOn = (await api('/api/led')).body.on;
+      paintLed();
+    } catch (e) {
+      // Safe mode does not mount the application routes.
+      $('led').textContent = 'Indicator unavailable';
+    }
+  } else {
+    show($('setup'), true);
+    scan();
+  }
+})();
+
+/* -------- mock backend, stripped at build time -------- */
+
+function mock(path, opts) {
+  const body = opts ? Object.fromEntries(new URLSearchParams(opts.body)) : {};
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const q = location.search;
+
+  const info = {
+    build: 'v0.9.0-3-gf10ab2c',
+    buildTime: '2026-09-15 08:14:02Z',
+    mode: q.includes('connected') ? 'normal' : 'provisioning',
+    state: q.includes('connected') ? 'connected' : 'provisioning',
+    provisioned: q.includes('connected'),
+    friendlyName: 'Bench unit',
+    ip: q.includes('connected') ? '192.168.1.42' : '192.168.4.1',
+    apSsid: 'ESP-Setup-4A21C9',
+    ssid: 'Home',
+    rssi: -54,
+    uptimeMs: 91000,
+    heap: 21456,
+    maxBlock: 16384,
+    sketchSize: 380228,
+    freeSketch: 462848,
+    bootCount: 1,
+    safeMode: q.includes('safe'),
+    stable: true,
+    reset: 'Power on'
+  };
+
+  const nets = [
+    { ssid: 'Home', rssi: -42, open: false },
+    { ssid: 'Bob"s WiFi', rssi: -58, open: false },
+    { ssid: 'Καφενείο', rssi: -67, open: true },
+    { ssid: 'DIRECT-a4-HP M283', rssi: -79, open: false },
+    { ssid: 'guest', rssi: -88, open: true }
+  ];
+
+  mock.broker = mock.broker || {
+    configured: true, host: 'homeassistant.local', port: 1883,
+    username: 'esp', baseTopic: 'devices/esp01s', hasPassword: true
+  };
+  mock.settings = mock.settings || {
+    hostname: '', friendlyName: 'Bench unit', defaultHostname: 'esp01s'
+  };
+
+  if (path === '/api/info') return wait(120).then(() => ({ status: 200, body: info }));
+
+  if (path === '/api/wifi/scan') {
+    mock.n = (mock.n || 0) + 1;
+    return wait(400).then(() => mock.n < 3
+      ? { status: 202, body: { scanning: true, networks: [] } }
+      : { status: 200, body: { scanning: false, ageMs: 200, networks: nets, truncated: true } });
+  }
+
+  if (path === '/api/wifi/config') {
+    return wait(300).then(() => ({ status: 200, body: { accepted: true, ssid: body.ssid, hostname: 'esp01s' } }));
+  }
+
+  if (path === '/api/wifi/forget') {
+    return wait(300).then(() => ({ status: 200, body: { accepted: true, apSsid: info.apSsid } }));
+  }
+
+  if (path === '/api/restart') return wait(200).then(() => ({ status: 200, body: { accepted: true } }));
+
+  if (path === '/api/settings') {
+    if (opts) {
+      mock.settings.hostname = body.hostname || '';
+      mock.settings.friendlyName = body.friendlyName || '';
+    }
+    return wait(200).then(() => ({ status: 200, body: mock.settings }));
+  }
+
+  if (path === '/api/broker') {
+    if (opts) {
+      mock.broker = {
+        configured: (body.host || '').length > 0,
+        host: body.host || '',
+        port: parseInt(body.port || '1883', 10),
+        username: body.username || '',
+        baseTopic: body.baseTopic || '',
+        hasPassword: 'password' in body ? body.password.length > 0 : mock.broker.hasPassword
+      };
+    }
+    return wait(200).then(() => ({ status: 200, body: mock.broker }));
+  }
+
+  if (path === '/api/log') {
+    return wait(150).then(() => ({ status: 200, body: { dropped: 4, lines: [
+      '1 [boot] build v0.9.0-3-gf10ab2c',
+      '2 [boot] reset: Power on',
+      '54 [cfg] ssid: Home',
+      '61 [net] connecting to Home (attempt 1)',
+      '1893 [net] ip 192.168.1.42',
+      '1894 [net] connecting -> connected',
+      '1901 [ota] listening as esp01s',
+      '30002 [health] stable, boot counter cleared'
+    ] } }));
+  }
+
+  if (path === '/api/led') {
+    if (opts) mock.led = body.on === '1';
+    return wait(150).then(() => ({ status: 200, body: { on: !!mock.led } }));
+  }
+
+  return Promise.reject(new Error(404));
+}
+</script>
+</body>
+</html>
